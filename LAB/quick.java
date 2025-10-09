@@ -1,6 +1,6 @@
 import java.util.Random;
 
-public class QuickSort {
+public class quick {
     private static Random random = new Random();
     
     // 1. QuickSort usando o primeiro elemento como pivô

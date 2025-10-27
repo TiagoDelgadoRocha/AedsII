@@ -50,6 +50,21 @@ void mostrar(){
 
 }
 
+Celula* inverterRecursivo(Celula *atual, Celula *novoProximo){
+    if(atual == NULL) return novoProximo;
+    
+    Celula *proximoOriginal = atual->prox;
+    atual->prox = novoProximo;
+    
+    return inverterRecursivo(proximoOriginal, atual);
+}
+
+void inverter(){
+    if(primeiro == NULL || primeiro == ultimo) return; // Fila vazia ou com 1 elemento
+    
+    ultimo = primeiro; // O primeiro se torna o último
+    primeiro = inverterRecursivo(primeiro, NULL); // Inverte recursivamente
+}
 
 int main (){
 
@@ -68,7 +83,18 @@ int main (){
     
     // Removendo (FIFO - primeiro a entrar, primeiro a sair)
     printf("Removendo: %d\n", remover());
-    printf("Fila: ");
+    printf("Fila após remoção: ");
+    mostrar();
+    
+    // Testando a função inverter
+    printf("\nTestando função inverter:\n");
+    inserir(40);
+    inserir(50);
+    printf("Fila antes de inverter: ");
+    mostrar();
+    
+    inverter();
+    printf("Fila após inverter: ");
     mostrar();
 
     return 0;

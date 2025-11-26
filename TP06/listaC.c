@@ -2,711 +2,713 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-#include <time.h>
 
-#define MAX_LINE_SIZE 4096
-#define MAX_FIELD_SIZE 512
-#define MAX_ARRAY_ELEMENTS 50
-#define MAX_IDS 100
+// Auxilio.
+#define TAM_MAX 1000
+#define TAM 50
 
-// Estrutura para armazenar os dados de um jogo
+// Struct Data para auxilio.
+typedef struct Data
+{
+    int dia;
+    int mes;
+    int ano;
+} Data;
+
+// Struct String para auxilio.
+typedef struct String
+{
+    char str[TAM_MAX];
+} String;
+
+// Struct Game.
 typedef struct
 {
     int id;
-    char *name;
-    char *releaseDate;
-    int estimatedOwners;
-    float price;
-    char **supportedLanguages;
-    int supportedLanguagesCount;
-    int metacriticScore;
-    float userScore;
-    int achievements;
-    char **publishers;
-    int publishersCount;
-    char **developers;
-    int developersCount;
-    char **categories;
-    int categoriesCount;
-    char **genres;
-    int genresCount;
-    char **tags;
-    int tagsCount;
+    String nome;
+    String data;
+    int jogadores;
+    float preco;
+    String idiomas[TAM];
+    int num_idiomas;
+    int notaEspecial;
+    float notaUsuario;
+    int conquistas;
+    String empresasPublicacao[TAM];
+    int numEmpresasPublicacao;
+    String empresasEstudios[TAM];
+    int numEmpresasEstudios;
+    String categorias[TAM];
+    int numCategorias;
+    String generos[TAM];
+    int numGeneros;
+    String tags[TAM];
+    int numTags;
+    Data dataInt;
 } Game;
 
-// Estrutura da célula dupla
-typedef struct CelulaDupla
+Game gamevazio()
 {
-    struct CelulaDupla *prox;
-    struct CelulaDupla *ant;
-    Game *game;
-} CelulaDupla;
-
-// Estrutura da lista dupla
-typedef struct
-{
-    CelulaDupla *primeiro;
-    CelulaDupla *ultimo;
-} ListaDupla;
-
-// Protótipos das funções
-void parseAndLoadGame(Game *game, char *line);
-void printGame(Game *game);
-void freeGame(Game *game);
-char *getNextField(char *line, int *pos);
-char **splitString(const char *str, char delimiter, int *count);
-char *trim(char *str);
-char *formatDate(char *dateStr);
-void printStringArray(char **arr, int count);
-
-// Funções da lista dupla
-ListaDupla *criarLista();
-void inserirInicio(ListaDupla *lista, Game *game);
-void inserirFim(ListaDupla *lista, Game *game);
-void inserirPosicao(ListaDupla *lista, Game *game, int pos);
-Game *removerInicio(ListaDupla *lista);
-Game *removerFim(ListaDupla *lista);
-Game *removerPosicao(ListaDupla *lista, int pos);
-int tamanhoLista(ListaDupla *lista);
-void imprimirLista(ListaDupla *lista);
-void imprimirRemovido(Game *game);
-void liberarLista(ListaDupla *lista);
-
-// Variáveis globais
-char **ids;
-int idsTamanho = 0;
-
-// Lógica Principal
-int main()
-{
-    char lineBuffer[MAX_LINE_SIZE];
-    const char *filePath = "/tmp/games.csv";
-
-    // Alocar memória para ids
-    ids = (char **)malloc(sizeof(char *) * MAX_IDS);
-    for (int i = 0; i < MAX_IDS; i++)
-    {
-        ids[i] = (char *)malloc(sizeof(char) * MAX_FIELD_SIZE);
-    }
-
-    // Ler IDs da entrada até "FIM"
-    char input[MAX_FIELD_SIZE];
-    while (fgets(input, MAX_FIELD_SIZE, stdin) != NULL)
-    {
-        input[strcspn(input, "\n")] = 0;
-        if (strcmp(input, "FIM") == 0)
-            break;
-        strcpy(ids[idsTamanho++], input);
-    }
-
-    // Carregar todos os jogos do arquivo
-    FILE *file = fopen(filePath, "r");
-    if (file == NULL)
-    {
-        perror("Erro ao abrir o arquivo");
-        return 1;
-    }
-
-    int gameCount = 0;
-    fgets(lineBuffer, MAX_LINE_SIZE, file);
-    while (fgets(lineBuffer, MAX_LINE_SIZE, file) != NULL)
-    {
-        gameCount++;
-    }
-    fclose(file);
-
-    Game *allGames = (Game *)malloc(sizeof(Game) * gameCount);
-    if (allGames == NULL)
-    {
-        printf("Erro de alocação de memória\n");
-        return 1;
-    }
-
-    file = fopen(filePath, "r");
-    if (file == NULL)
-    {
-        perror("Erro ao reabrir o arquivo");
-        free(allGames);
-        return 1;
-    }
-
-    fgets(lineBuffer, MAX_LINE_SIZE, file);
-    int i = 0;
-    while (fgets(lineBuffer, MAX_LINE_SIZE, file) != NULL)
-    {
-        parseAndLoadGame(&allGames[i], lineBuffer);
-        i++;
-    }
-    fclose(file);
-
-    // Criar lista e inserir jogos baseados nos IDs
-    ListaDupla *lista = criarLista();
-
-    for (i = 0; i < idsTamanho; i++)
-    {
-        int targetId = atoi(ids[i]);
-        for (int j = 0; j < gameCount; j++)
-        {
-            if (allGames[j].id == targetId)
-            {
-                // Criar cópia do jogo para a lista
-                Game *novoGame = (Game *)malloc(sizeof(Game));
-                *novoGame = allGames[j]; // Cópia superficial
-                // Deep copy para strings
-                novoGame->name = strdup(allGames[j].name);
-                novoGame->releaseDate = strdup(allGames[j].releaseDate);
-                // Para arrays, seria necessário deep copy também
-                inserirFim(lista, novoGame);
-                break;
-            }
-        }
-    }
-
-    // Processar operações
-    int n;
-    scanf("%d", &n);
-    getchar(); // Consumir newline
-
-    for (i = 0; i < n; i++)
-    {
-        fgets(input, MAX_FIELD_SIZE, stdin);
-        input[strcspn(input, "\n")] = 0;
-
-        char operacao[3] = {0};
-        strncpy(operacao, input, 2);
-
-        if (strcmp(operacao, "II") == 0)
-        {
-            // Inserir no início
-            int targetId = atoi(input + 3);
-            for (int j = 0; j < gameCount; j++)
-            {
-                if (allGames[j].id == targetId)
-                {
-                    Game *novoGame = (Game *)malloc(sizeof(Game));
-                    *novoGame = allGames[j];
-                    novoGame->name = strdup(allGames[j].name);
-                    novoGame->releaseDate = strdup(allGames[j].releaseDate);
-                    inserirInicio(lista, novoGame);
-                    break;
-                }
-            }
-        }
-        else if (strcmp(operacao, "IF") == 0)
-        {
-            // Inserir no fim
-            int targetId = atoi(input + 3);
-            for (int j = 0; j < gameCount; j++)
-            {
-                if (allGames[j].id == targetId)
-                {
-                    Game *novoGame = (Game *)malloc(sizeof(Game));
-                    *novoGame = allGames[j];
-                    novoGame->name = strdup(allGames[j].name);
-                    novoGame->releaseDate = strdup(allGames[j].releaseDate);
-                    inserirFim(lista, novoGame);
-                    break;
-                }
-            }
-        }
-        else if (strcmp(operacao, "I*") == 0)
-        {
-            // Inserir em posição específica
-            char *token = strtok(input + 3, " ");
-            int pos = atoi(token);
-            token = strtok(NULL, " ");
-            int targetId = atoi(token);
-
-            for (int j = 0; j < gameCount; j++)
-            {
-                if (allGames[j].id == targetId)
-                {
-                    Game *novoGame = (Game *)malloc(sizeof(Game));
-                    *novoGame = allGames[j];
-                    novoGame->name = strdup(allGames[j].name);
-                    novoGame->releaseDate = strdup(allGames[j].releaseDate);
-                    inserirPosicao(lista, novoGame, pos);
-                    break;
-                }
-            }
-        }
-        else if (strcmp(operacao, "RI") == 0)
-        {
-            // Remover do início
-            Game *removido = removerInicio(lista);
-            if (removido != NULL)
-            {
-                printf("(R) %s\n", removido->name);
-                freeGame(removido);
-                free(removido);
-            }
-        }
-        else if (strcmp(operacao, "RF") == 0)
-        {
-            // Remover do fim
-            Game *removido = removerFim(lista);
-            if (removido != NULL)
-            {
-                printf("(R) %s\n", removido->name);
-                freeGame(removido);
-                free(removido);
-            }
-        }
-        else if (strcmp(operacao, "R*") == 0)
-        {
-            // Remover de posição específica
-            int pos = atoi(input + 3);
-            Game *removido = removerPosicao(lista, pos);
-            if (removido != NULL)
-            {
-                printf("(R) %s\n", removido->name);
-                freeGame(removido);
-                free(removido);
-            }
-        }
-    }
-    // Imprimir lista final - DEVE VIR ANTES de liberarLista()
-    imprimirLista(lista);
-
-    // DEPOIS liberar memória
-    liberarLista(lista);
-
-    for (i = 0; i < gameCount; i++)
-    {
-        freeGame(&allGames[i]);
-    }
-    free(allGames);
-
-    for (i = 0; i < MAX_IDS; i++)
-    {
-        free(ids[i]);
-    }
-    free(ids);
-
-    return 0;
+    Game g;
+    g.id = -1;
+    strcpy(g.nome.str, "nenhum");
+    strcpy(g.data.str, "01/01/2000");
+    g.jogadores = 0;
+    g.preco = 0.0f;
+    strcpy(g.idiomas[0].str, " ");
+    g.num_idiomas = 0;
+    g.notaEspecial = -1;
+    g.notaUsuario = -1.0f;
+    g.conquistas = 0;
+    strcpy(g.empresasPublicacao[0].str, " ");
+    g.numEmpresasPublicacao = 0;
+    strcpy(g.empresasEstudios[0].str, " ");
+    g.numEmpresasEstudios = 0;
+    strcpy(g.categorias[0].str, " ");
+    g.numCategorias = 0;
+    strcpy(g.generos[0].str, " ");
+    g.numGeneros = 0;
+    strcpy(g.tags[0].str, " ");
+    g.numTags = 0;
+    g.dataInt.dia = 1;
+    g.dataInt.mes = 1;
+    g.dataInt.ano = 2000;
+    return g;
 }
 
-// Implementação das funções da lista dupla
-ListaDupla *criarLista()
+// Struct Celula.
+typedef struct Celula
 {
-    ListaDupla *lista = (ListaDupla *)malloc(sizeof(ListaDupla));
-    lista->primeiro = NULL;
-    lista->ultimo = NULL;
-    return lista;
-}
+    Game elemento;
+    struct Celula *prox;
+} Celula;
 
-void inserirInicio(ListaDupla *lista, Game *game)
+// Funcao que cria a Celula.
+Celula *criarCelula(Game game)
 {
-    CelulaDupla *nova = (CelulaDupla *)malloc(sizeof(CelulaDupla));
-    nova->game = game;
-    nova->ant = NULL;
-    nova->prox = lista->primeiro;
-
-    if (lista->primeiro != NULL)
-    {
-        lista->primeiro->ant = nova;
-    }
-    else
-    {
-        lista->ultimo = nova;
-    }
-    lista->primeiro = nova;
-}
-
-void inserirFim(ListaDupla *lista, Game *game)
-{
-    CelulaDupla *nova = (CelulaDupla *)malloc(sizeof(CelulaDupla));
-    nova->game = game;
+    Celula *nova = (Celula *)malloc(sizeof(Celula));
+    nova->elemento = game;
     nova->prox = NULL;
-    nova->ant = lista->ultimo;
-
-    if (lista->ultimo != NULL)
-    {
-        lista->ultimo->prox = nova;
-    }
-    else
-    {
-        lista->primeiro = nova;
-    }
-    lista->ultimo = nova;
+    return nova;
 }
 
-void inserirPosicao(ListaDupla *lista, Game *game, int pos)
+// Struct Lista.
+typedef struct Lista
 {
-    if (pos < 0 || pos > tamanhoLista(lista))
-        return;
+    Celula *primeiro;
+    Celula *ultimo;
+} Lista;
 
-    if (pos == 0)
+// Funcao que cria a Lista.
+Lista *criarLista()
+{
+    Lista *nova = (Lista *)malloc(sizeof(Lista));
+    Game vazio = gamevazio();
+    nova->primeiro = criarCelula(vazio);
+    nova->ultimo = nova->primeiro;
+    return nova;
+}
+
+// Funcao que retorna o tamanho da Lista.
+int tamanho(Lista *lista)
+{
+    int count = 0;
+    for (Celula *i = lista->primeiro->prox; i != NULL; i = i->prox)
     {
+        count++;
+    }
+    return count;
+}
+
+// Procedimentos de insercao da Lista.
+void inserirInicio(Lista *lista, Game game)
+{
+    lista->primeiro->elemento = game;
+    Game vazio = gamevazio();
+    Celula *tmp = criarCelula(vazio);
+    tmp->prox = lista->primeiro;
+    lista->primeiro = tmp;
+    tmp = NULL;
+}
+void inserirFim(Lista *lista, Game game)
+{
+    lista->ultimo->prox = criarCelula(game);
+    lista->ultimo = lista->ultimo->prox;
+}
+void inserir(Lista *lista, Game game, int pos)
+{
+    int tam = tamanho(lista);
+    if (pos < 0 || pos > tam)
+    {
+        // posição inválida (conforme original apenas imprime mensagem em algumas versões)
+        // aqui seguimos a abordagem silenciosa (sem alteração de saída)
+        return;
+    }
+    else if (pos == 0)
         inserirInicio(lista, game);
-        return;
-    }
-    if (pos == tamanhoLista(lista))
-    {
+    else if (pos == tam)
         inserirFim(lista, game);
+    else
+    {
+        Celula *nova = criarCelula(game);
+        Celula *tmp = lista->primeiro->prox;
+        for (int i = 0; i < pos - 1; i++, tmp = tmp->prox)
+            ;
+        nova->prox = tmp->prox;
+        tmp->prox = nova;
+        tmp = nova = NULL;
+    }
+}
+
+// Funcoes de remocao da Lista.
+Game removerInicio(Lista *lista)
+{
+    if (lista->primeiro == lista->ultimo)
+    {
+        // retorno de game vazio caso tente remover de lista vazia (mantendo lógica similar)
+        return gamevazio();
+    }
+    else
+    {
+        Celula *tmp = lista->primeiro->prox;
+        lista->primeiro->prox = tmp->prox;
+        tmp->prox = NULL;
+        Game resp = tmp->elemento;
+        free(tmp);
+        tmp = NULL;
+        return resp;
+    }
+}
+Game removerFim(Lista *lista)
+{
+    if (lista->primeiro == lista->ultimo)
+    {
+        return gamevazio();
+    }
+    else
+    {
+        Celula *i;
+        for (i = lista->primeiro->prox; i->prox != lista->ultimo; i = i->prox)
+            ;
+        Game resp = lista->ultimo->elemento;
+        lista->ultimo = i;
+        i = i->prox;
+        lista->ultimo->prox = NULL;
+        free(i);
+        i = NULL;
+        return resp;
+    }
+}
+Game remover(Lista *lista, int pos)
+{
+    int tam = tamanho(lista);
+    Game resp;
+    if (pos < 0 || pos >= tam)
+    {
+        // posição inválida -> retorna vazio
+        resp = gamevazio();
+    }
+    else if (pos == 0)
+        resp = removerInicio(lista);
+    else if (pos == tam - 1)
+        resp = removerFim(lista);
+    else
+    {
+        Celula *tmp = lista->primeiro->prox;
+        for (int i = 0; i < pos - 1; i++, tmp = tmp->prox)
+            ;
+        Celula *rm = tmp->prox;
+        resp = rm->elemento;
+        tmp->prox = rm->prox;
+        rm->prox = NULL;
+        free(rm);
+        rm = NULL;
+    }
+    return resp;
+}
+
+// Funcap que retorna o tamanho da string.
+int my_strlen(char *str)
+{
+    int count = 0;
+    while (*(str + count) != '\0')
+    {
+        count++;
+    }
+    return count;
+}
+
+// Funcao que retorna se as strings sao iguais.
+bool my_strcmp(char *str1, char *str2)
+{
+    bool resp = true;
+    if (my_strlen(str1) == my_strlen(str2))
+    {
+        for (int i = 0; i < my_strlen(str1); i++)
+        {
+            if (*(str1 + i) != *(str2 + i))
+            {
+                resp = false;
+                i = my_strlen(str1);
+            }
+        }
+    }
+    else
+    {
+        resp = false;
+    }
+    return resp;
+}
+
+// Funcao que formata uma string separando uma lista como por exemplo ("['a', 'b', 'c']") em um array de strings.
+int formatar(String entrada, String saida[], bool apostrofo)
+{
+    String aux;
+    int contador = 0, auxPos = 0;
+    aux.str[0] = '\0';
+    for (int i = 0; i < my_strlen(entrada.str); i++)
+    {
+        char c = entrada.str[i];
+        if (c == ',')
+        {
+            aux.str[auxPos] = '\0';
+            int start = 0;
+            while (aux.str[start] == ' ')
+                start++;
+            if (my_strlen(aux.str + start) > 0)
+            {
+                strcpy(saida[contador].str, aux.str + start);
+                contador++;
+            }
+            aux.str[0] = '\0';
+            auxPos = 0;
+        }
+        else
+        {
+            if (!(c == '[' || c == ']' || (apostrofo && c == '\'')))
+            {
+                aux.str[auxPos] = c;
+                auxPos++;
+            }
+        }
+    }
+    aux.str[auxPos] = '\0';
+    if (my_strlen(aux.str) > 0)
+    {
+        int start = 0;
+        while (aux.str[start] == ' ')
+            start++;
+        strcpy(saida[contador].str, aux.str + start);
+        contador++;
+    }
+    return contador;
+}
+// Procedimento que transforma "Oct 18, 2018" em "18/10/2018".
+void setDataFormatada(String entrada, String *saida, Data *data)
+{
+    if (my_strlen(entrada.str) < 8)
+    {
+        strcpy(saida->str, "01/01/0000");
+        data->dia = 1;
+        data->mes = 1;
+        data->ano = 0;
         return;
     }
-
-    CelulaDupla *atual = lista->primeiro;
-    for (int i = 0; i < pos; i++)
+    char mes[4], dia[3], ano[5], mesNum[3];
+    memset(mes, 0, sizeof(mes));
+    memset(dia, 0, sizeof(dia));
+    memset(ano, 0, sizeof(ano));
+    mes[0] = mes[1] = mes[2] = mes[3] = 0;
+    strncpy(mes, entrada.str, 3);
+    mes[3] = '\0';
+    if (my_strlen(entrada.str) == 8 && entrada.str[3] == ' ')
     {
-        atual = atual->prox;
+        dia[0] = '0';
+        dia[1] = '1';
+        dia[2] = '\0';
+        strcpy(ano, entrada.str + 4);
     }
-
-    CelulaDupla *nova = (CelulaDupla *)malloc(sizeof(CelulaDupla));
-    nova->game = game;
-    nova->ant = atual->ant;
-    nova->prox = atual;
-    atual->ant->prox = nova;
-    atual->ant = nova;
-}
-
-Game *removerInicio(ListaDupla *lista)
-{
-    if (lista->primeiro == NULL)
-        return NULL;
-
-    CelulaDupla *removida = lista->primeiro;
-    Game *game = removida->game;
-
-    lista->primeiro = removida->prox;
-    if (lista->primeiro != NULL)
+    else if (entrada.str[5] == ',')
     {
-        lista->primeiro->ant = NULL;
+        dia[0] = '0';
+        dia[1] = entrada.str[4];
+        dia[2] = '\0';
+        strcpy(ano, entrada.str + 7);
     }
     else
     {
-        lista->ultimo = NULL;
+        dia[0] = entrada.str[4];
+        dia[1] = entrada.str[5];
+        dia[2] = '\0';
+        strcpy(ano, entrada.str + 8);
     }
-
-    free(removida);
-    return game;
+    if (my_strcmp(mes, "Jan"))
+        strcpy(mesNum, "01");
+    else if (my_strcmp(mes, "Feb"))
+        strcpy(mesNum, "02");
+    else if (my_strcmp(mes, "Mar"))
+        strcpy(mesNum, "03");
+    else if (my_strcmp(mes, "Apr"))
+        strcpy(mesNum, "04");
+    else if (my_strcmp(mes, "May"))
+        strcpy(mesNum, "05");
+    else if (my_strcmp(mes, "Jun"))
+        strcpy(mesNum, "06");
+    else if (my_strcmp(mes, "Jul"))
+        strcpy(mesNum, "07");
+    else if (my_strcmp(mes, "Aug"))
+        strcpy(mesNum, "08");
+    else if (my_strcmp(mes, "Sep"))
+        strcpy(mesNum, "09");
+    else if (my_strcmp(mes, "Oct"))
+        strcpy(mesNum, "10");
+    else if (my_strcmp(mes, "Nov"))
+        strcpy(mesNum, "11");
+    else if (my_strcmp(mes, "Dec"))
+        strcpy(mesNum, "12");
+    else
+        strcpy(mesNum, "01");
+    strcpy(saida->str, dia);
+    strcat(saida->str, "/");
+    strcat(saida->str, mesNum);
+    strcat(saida->str, "/");
+    strcat(saida->str, ano);
+    data->dia = atoi(dia);
+    data->mes = atoi(mesNum);
+    data->ano = atoi(ano);
 }
 
-Game *removerFim(ListaDupla *lista)
+// Setters.
+void setId(Game *game, String valor)
 {
-    if (lista->ultimo == NULL)
-        return NULL;
-
-    CelulaDupla *removida = lista->ultimo;
-    Game *game = removida->game;
-
-    lista->ultimo = removida->ant;
-    if (lista->ultimo != NULL)
+    game->id = atoi(valor.str);
+}
+void setNome(Game *game, String valor)
+{
+    strcpy(game->nome.str, valor.str);
+}
+void setData(Game *game, String valor)
+{
+    setDataFormatada(valor, &game->data, &game->dataInt);
+}
+void setJogadores(Game *game, String valor)
+{
+    String aux;
+    aux.str[0] = '\0';
+    int pos = 0;
+    for (int i = 0; i < strlen(valor.str); i++)
     {
-        lista->ultimo->prox = NULL;
+        if (valor.str[i] >= '0' && valor.str[i] <= '9')
+            aux.str[pos++] = valor.str[i];
+    }
+    aux.str[pos] = '\0';
+    game->jogadores = atoi(aux.str);
+}
+void setPreco(Game *game, String valor)
+{
+    if (my_strcmp(valor.str, "Free to Play") || my_strcmp(valor.str, "0.0"))
+    {
+        game->preco = 0.0f;
     }
     else
     {
-        lista->primeiro = NULL;
-    }
-
-    free(removida);
-    return game;
-}
-
-Game *removerPosicao(ListaDupla *lista, int pos)
-{
-    if (pos < 0 || pos >= tamanhoLista(lista))
-        return NULL;
-
-    if (pos == 0)
-        return removerInicio(lista);
-    if (pos == tamanhoLista(lista) - 1)
-        return removerFim(lista);
-
-    CelulaDupla *atual = lista->primeiro;
-    for (int i = 0; i < pos; i++)
-    {
-        atual = atual->prox;
-    }
-
-    Game *game = atual->game;
-    atual->ant->prox = atual->prox;
-    atual->prox->ant = atual->ant;
-
-    free(atual);
-    return game;
-}
-
-int tamanhoLista(ListaDupla *lista)
-{
-    int tam = 0;
-    CelulaDupla *atual = lista->primeiro;
-    while (atual != NULL)
-    {
-        tam++;
-        atual = atual->prox;
-    }
-    return tam;
-}
-
-void imprimirLista(ListaDupla *lista)
-{
-    CelulaDupla *atual = lista->primeiro;
-    int index = 0;
-    while (atual != NULL)
-    {
-        printf("[%d] ", index++);
-        printGame(atual->game);
-        atual = atual->prox;
+        game->preco = atof(valor.str);
     }
 }
-
-void liberarLista(ListaDupla *lista)
+void setIdiomas(Game *game, String valor)
 {
-    CelulaDupla *atual = lista->primeiro;
-    while (atual != NULL)
+    game->num_idiomas = formatar(valor, game->idiomas, true);
+}
+void setNotaEspecial(Game *game, String valor)
+{
+    if (my_strlen(valor.str) == 0)
     {
-        CelulaDupla *prox = atual->prox;
-        freeGame(atual->game);
-        free(atual->game);
-        free(atual);
-        atual = prox;
+        game->notaEspecial = 0;
+    }
+    else
+    {
+        game->notaEspecial = atoi(valor.str);
+    }
+}
+void setNotaUsuario(Game *game, String valor)
+{
+    if (my_strlen(valor.str) == 0 || my_strcmp(valor.str, "tbd"))
+    {
+        game->notaUsuario = 0.0f;
+    }
+    else
+    {
+        game->notaUsuario = atof(valor.str);
+    }
+}
+void setConquistas(Game *game, String valor)
+{
+    if (my_strlen(valor.str) == 0)
+    {
+        game->conquistas = 0;
+    }
+    else
+    {
+        game->conquistas = atoi(valor.str);
+    }
+}
+void setEmpresasPublicacao(Game *game, String valor)
+{
+    game->numEmpresasPublicacao = formatar(valor, game->empresasPublicacao, false);
+}
+void setEmpresasEstudios(Game *game, String valor)
+{
+    game->numEmpresasEstudios = formatar(valor, game->empresasEstudios, false);
+}
+void setCategorias(Game *game, String valor)
+{
+    game->numCategorias = formatar(valor, game->categorias, false);
+}
+void setGeneros(Game *game, String valor)
+{
+    game->numGeneros = formatar(valor, game->generos, false);
+}
+void setTags(Game *game, String valor)
+{
+    game->numTags = formatar(valor, game->tags, false);
+}
+void settar(Game *game, String array[])
+{
+    setId(game, array[0]);
+    setNome(game, array[1]);
+    setData(game, array[2]);
+    setJogadores(game, array[3]);
+    setPreco(game, array[4]);
+    setIdiomas(game, array[5]);
+    setNotaEspecial(game, array[6]);
+    setNotaUsuario(game, array[7]);
+    setConquistas(game, array[8]);
+    setEmpresasPublicacao(game, array[9]);
+    setEmpresasEstudios(game, array[10]);
+    setCategorias(game, array[11]);
+    setGeneros(game, array[12]);
+    setTags(game, array[13]);
+}
+
+// Procedimentos para imprimir.
+void imprimirArray(String array[], int n)
+{
+    printf("[");
+    for (int i = 0; i < n; i++)
+    {
+        int start = 0;
+        while (array[i].str[start] == ' ')
+            start++;
+        printf("%s", array[i].str + start);
+        if (i < n - 1)
+            printf(", ");
+    }
+    printf("]");
+}
+void imprimir(Game *game)
+{
+    printf("=> %d ## %s ## %s ## %d ## ",
+           game->id,
+           game->nome.str,
+           game->data.str,
+           game->jogadores);
+    if (game->preco == 0.0)
+    {
+        printf("0.0 ## ");
+    }
+    else
+    {
+        printf("%g ## ", game->preco);
+    }
+    imprimirArray(game->idiomas, game->num_idiomas);
+    printf(" ## %d ## %.1f ## %d ## ",
+           game->notaEspecial,
+           game->notaUsuario,
+           game->conquistas);
+    imprimirArray(game->empresasPublicacao, game->numEmpresasPublicacao);
+    printf(" ## ");
+    imprimirArray(game->empresasEstudios, game->numEmpresasEstudios);
+    printf(" ## ");
+    imprimirArray(game->categorias, game->numCategorias);
+    printf(" ## ");
+    imprimirArray(game->generos, game->numGeneros);
+    printf(" ## ");
+    imprimirArray(game->tags, game->numTags);
+    printf(" ##\n");
+}
+
+// Procedimento que mostra os elementos da Lista.
+void mostrar(Lista *lista)
+{
+    for (Celula *i = lista->primeiro->prox; i != NULL; i = i->prox)
+    {
+        imprimir(&i->elemento);
+    }
+}
+
+// Procedimento que limpa o espaco de memoria.
+void freeLista(Lista *lista)
+{
+    Celula *i = lista->primeiro;
+    while (i != NULL)
+    {
+        Celula *tmp = i->prox;
+        free(i);
+        i = tmp;
     }
     free(lista);
 }
 
-// As funções parseAndLoadGame, printGame, freeGame, getNextField,
-// splitString, trim, formatDate, printStringArray permanecem as mesmas
-// da implementação anterior da pilha
-
-// Função que preenche uma struct Game a partir de uma linha do CSV
-void parseAndLoadGame(Game *game, char *line)
+// Main.
+int main()
 {
-    int pos = 0;
-
-    game->id = atoi(getNextField(line, &pos));
-    game->name = getNextField(line, &pos);
-    game->releaseDate = formatDate(getNextField(line, &pos));
-    game->estimatedOwners = atoi(getNextField(line, &pos));
-
-    char *priceStr = getNextField(line, &pos);
-    game->price = (strcmp(priceStr, "Free to Play") == 0 || strlen(priceStr) == 0) ? 0.0f : atof(priceStr);
-    free(priceStr);
-
-    char *langStr = getNextField(line, &pos);
-    langStr[strcspn(langStr, "]")] = 0;
-    memmove(langStr, langStr + 1, strlen(langStr));
-    for (int i = 0; langStr[i]; i++)
-        if (langStr[i] == '\'')
-            langStr[i] = ' ';
-    game->supportedLanguages = splitString(langStr, ',', &game->supportedLanguagesCount);
-    free(langStr);
-
-    game->metacriticScore = atoi(getNextField(line, &pos));
-    game->userScore = atof(getNextField(line, &pos));
-    game->achievements = atoi(getNextField(line, &pos));
-
-    game->publishers = splitString(getNextField(line, &pos), ',', &game->publishersCount);
-    game->developers = splitString(getNextField(line, &pos), ',', &game->developersCount);
-    game->categories = splitString(getNextField(line, &pos), ',', &game->categoriesCount);
-    game->genres = splitString(getNextField(line, &pos), ',', &game->genresCount);
-    game->tags = splitString(getNextField(line, &pos), ',', &game->tagsCount);
-}
-
-// Imprime uma struct Game no formato exigido
-void printGame(Game *game)
-{
-    char formattedDate[12];
-    strcpy(formattedDate, game->releaseDate);
-    if (formattedDate[1] == '/')
+    const char *path = "/tmp/games.csv";
+    FILE *arq = fopen(path, "r");
+    if (!arq)
     {
-        memmove(formattedDate + 1, formattedDate, strlen(formattedDate) + 1);
-        formattedDate[0] = '0';
+        printf("Erro ao abrir o arquivo\n");
+        return 1;
     }
-
-    printf("=> %d ## %s ## %s ## %d ## %.2f ## ",
-           game->id, game->name, formattedDate, game->estimatedOwners, game->price);
-    printStringArray(game->supportedLanguages, game->supportedLanguagesCount);
-    printf(" ## %d ## %.1f ## %d ## ",
-           game->metacriticScore,
-           game->userScore,
-           game->achievements);
-    printStringArray(game->publishers, game->publishersCount);
-    printf(" ## ");
-    printStringArray(game->developers, game->developersCount);
-    printf(" ## ");
-    printStringArray(game->categories, game->categoriesCount);
-    printf(" ## ");
-    printStringArray(game->genres, game->genresCount);
-    printf(" ## ");
-    printStringArray(game->tags, game->tagsCount);
-    printf(" ##\n");
-}
-
-// Libera a memória de uma única struct Game
-void freeGame(Game *game)
-{
-    free(game->name);
-    free(game->releaseDate);
-    for (int i = 0; i < game->supportedLanguagesCount; i++)
-        free(game->supportedLanguages[i]);
-    free(game->supportedLanguages);
-    for (int i = 0; i < game->publishersCount; i++)
-        free(game->publishers[i]);
-    free(game->publishers);
-    for (int i = 0; i < game->developersCount; i++)
-        free(game->developers[i]);
-    free(game->developers);
-    for (int i = 0; i < game->categoriesCount; i++)
-        free(game->categories[i]);
-    free(game->categories);
-    for (int i = 0; i < game->genresCount; i++)
-        free(game->genres[i]);
-    free(game->genres);
-    for (int i = 0; i < game->tagsCount; i++)
-        free(game->tags[i]);
-    free(game->tags);
-}
-
-// Pega o próximo campo do CSV, tratando aspas
-char *getNextField(char *line, int *pos)
-{
-    char *field = (char *)malloc(sizeof(char) * MAX_FIELD_SIZE);
-    int i = 0;
-    bool inQuotes = false;
-
-    if (line[*pos] == '"')
+    Lista *lista = criarLista();
+    String entrada, cabecalho;
+    // ler cabeçalho
+    if (fgets(cabecalho.str, TAM_MAX, arq) == NULL)
     {
-        inQuotes = true;
-        (*pos)++;
+        fclose(arq);
+        return 1;
     }
-
-    while (line[*pos] != '\0')
+    // ler linhas
+    while (fgets(entrada.str, TAM_MAX, arq) != NULL)
     {
-        if (inQuotes)
+        entrada.str[strcspn(entrada.str, "\r\n")] = '\0';
+        String array[14];
+        String aux;
+        aux.str[0] = '\0';
+        int contador = 0, auxPos = 0;
+        bool aspas = false;
+        for (int i = 0; i < (int)strlen(entrada.str); i++)
         {
-            if (line[*pos] == '"')
+            char c = entrada.str[i];
+            if (c == '"')
             {
-                (*pos)++;
+                aspas = !aspas;
+            }
+            else if (c == ',' && !aspas)
+            {
+                aux.str[auxPos] = '\0';
+                strcpy(array[contador++].str, aux.str);
+                auxPos = 0;
+                aux.str[0] = '\0';
+            }
+            else
+            {
+                aux.str[auxPos++] = c;
+            }
+        }
+        aux.str[auxPos] = '\0';
+        strcpy(array[contador].str, aux.str);
+        Game game;
+        settar(&game, array);
+        inserirFim(lista, game);
+    }
+    fclose(arq);
+
+    // lê ids até FIM
+    Lista *pesquisa = criarLista();
+    String buscaId;
+    if (scanf("%s", buscaId.str) != 1)
+        return 0;
+    while (!my_strcmp(buscaId.str, "FIM"))
+    {
+        int idBusca = atoi(buscaId.str);
+        for (Celula *i = lista->primeiro->prox; i != NULL; i = i->prox)
+        {
+            if (idBusca == i->elemento.id)
+            {
+                inserirFim(pesquisa, i->elemento);
                 break;
             }
         }
-        else
+        if (scanf("%s", buscaId.str) != 1)
+            break;
+    }
+    int n;
+    if (scanf("%d", &n) != 1)
+        n = 0;
+    for (int ii = 0; ii < n; ii++)
+    {
+        String acao;
+        if (scanf("%s", acao.str) != 1)
+            break;
+        if (my_strcmp(acao.str, "II"))
         {
-            if (line[*pos] == ',')
+            int numero;
+            scanf("%d", &numero);
+            for (Celula *j = lista->primeiro->prox; j != NULL; j = j->prox)
             {
-                break;
+                if (numero == j->elemento.id)
+                {
+                    inserirInicio(pesquisa, j->elemento);
+                    break;
+                }
             }
         }
-        field[i++] = line[(*pos)++];
-    }
-
-    if (line[*pos] == ',')
-    {
-        (*pos)++;
-    }
-
-    field[i] = '\0';
-    return field;
-}
-
-// Divide uma string em um array de strings
-char **splitString(const char *str, char delimiter, int *count)
-{
-    int initialCount = 0;
-    for (int i = 0; str[i]; i++)
-        if (str[i] == delimiter)
-            initialCount++;
-    *count = initialCount + 1;
-
-    char **result = (char **)malloc(sizeof(char *) * (*count));
-    char buffer[MAX_FIELD_SIZE];
-    int str_idx = 0;
-    int result_idx = 0;
-
-    for (int i = 0; i <= strlen(str); i++)
-    {
-        if (str[i] == delimiter || str[i] == '\0')
+        else if (my_strcmp(acao.str, "I*"))
         {
-            buffer[str_idx] = '\0';
-            result[result_idx] = (char *)malloc(sizeof(char) * (strlen(buffer) + 1));
-            strcpy(result[result_idx], trim(buffer));
-            result_idx++;
-            str_idx = 0;
+            int pos, numero;
+            scanf("%d%d", &pos, &numero);
+            for (Celula *j = lista->primeiro->prox; j != NULL; j = j->prox)
+            {
+                if (numero == j->elemento.id)
+                {
+                    inserir(pesquisa, j->elemento, pos);
+                    break;
+                }
+            }
+        }
+        else if (my_strcmp(acao.str, "IF"))
+        {
+            int numero;
+            scanf("%d", &numero);
+            for (Celula *j = lista->primeiro->prox; j != NULL; j = j->prox)
+            {
+                if (numero == j->elemento.id)
+                {
+                    inserirFim(pesquisa, j->elemento);
+                    break;
+                }
+            }
+        }
+        else if (my_strcmp(acao.str, "RI"))
+        {
+            Game removidoInicio = removerInicio(pesquisa);
+            printf("(R) %s\n", removidoInicio.nome.str);
+        }
+        else if (my_strcmp(acao.str, "R*"))
+        {
+            int pos;
+            scanf("%d", &pos);
+            Game removidoPos = remover(pesquisa, pos);
+            printf("(R) %s\n", removidoPos.nome.str);
+        }
+        else if (my_strcmp(acao.str, "RF"))
+        {
+            Game removidoFim = removerFim(pesquisa);
+            printf("(R) %s\n", removidoFim.nome.str);
         }
         else
         {
-            buffer[str_idx++] = str[i];
+            // operação desconhecida -> ignora
         }
     }
-    return result;
-}
-
-// Remove espaços das bordas
-char *trim(char *str)
-{
-    char *end;
-    while (isspace((unsigned char)*str))
-        str++;
-    if (*str == 0)
-        return str;
-    end = str + strlen(str) - 1;
-    while (end > str && isspace((unsigned char)*end))
-        end--;
-    end[1] = '\0';
-    return str;
-}
-
-// Formata a data para dd/MM/yyyy
-char *formatDate(char *dateStr)
-{
-    char *formattedDate = (char *)malloc(sizeof(char) * 12);
-    char monthStr[4] = {0};
-    char day[3] = "01";
-    char year[5] = "0000";
-
-    sscanf(dateStr, "%s", monthStr);
-
-    char *monthNum = "01";
-    if (strcmp(monthStr, "Jan") == 0)
-        monthNum = "01";
-    else if (strcmp(monthStr, "Feb") == 0)
-        monthNum = "02";
-    else if (strcmp(monthStr, "Mar") == 0)
-        monthNum = "03";
-    else if (strcmp(monthStr, "Apr") == 0)
-        monthNum = "04";
-    else if (strcmp(monthStr, "May") == 0)
-        monthNum = "05";
-    else if (strcmp(monthStr, "Jun") == 0)
-        monthNum = "06";
-    else if (strcmp(monthStr, "Jul") == 0)
-        monthNum = "07";
-    else if (strcmp(monthStr, "Aug") == 0)
-        monthNum = "08";
-    else if (strcmp(monthStr, "Sep") == 0)
-        monthNum = "09";
-    else if (strcmp(monthStr, "Oct") == 0)
-        monthNum = "10";
-    else if (strcmp(monthStr, "Nov") == 0)
-        monthNum = "11";
-    else if (strcmp(monthStr, "Dec") == 0)
-        monthNum = "12";
-
-    char *ptr = dateStr;
-    while (*ptr && !isdigit(*ptr))
-        ptr++;
-    if (isdigit(*ptr))
-        sscanf(ptr, "%[^,], %s", day, year);
-
-    sprintf(formattedDate, "%s/%s/%s", day, monthNum, year);
-    free(dateStr);
-    return formattedDate;
-}
-
-// Imprime um array de strings
-void printStringArray(char **arr, int count)
-{
-    printf("[");
-    for (int i = 0; i < count; i++)
+    int count = 0;
+    for (Celula *i = pesquisa->primeiro->prox; i != NULL; i = i->prox)
     {
-        printf("%s", arr[i]);
-        if (i < count - 1)
-        {
-            printf(", ");
-        }
+        printf("[%d] ", count);
+        imprimir(&i->elemento);
+        count++;
     }
-    printf("]");
+    freeLista(lista);
+    freeLista(pesquisa);
+    return 0;
 }
